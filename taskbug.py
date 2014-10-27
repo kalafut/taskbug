@@ -2,23 +2,35 @@
 
 import inspect
 import os
-import readline
+import cPickle as pickle
+import pyreadline as readline
 
 history = []
 commands = {}
 tracks=[ [] ]
-track = tracks[0]
 
+save_filename = "tb"
+
+def save():
+    with open(save_filename, "wb") as f:
+        pickle.dump(tracks, f)
+
+def load():
+    global track
+    global tracks
+    with open(save_filename, "rb") as f:
+        tracks = pickle.load(f)
 
 def command(keyword):
     def decorator(f):
         assert keyword not in commands
         commands[keyword] = f
         def wrapper(*args, **kwargs):
-            print keyword
+            print keyword # What is this??
             return f(*args, **kwargs)
         return wrapper
     return decorator
+
 
 @command('clear')
 def clear(line):
@@ -35,7 +47,7 @@ def help(line):
         print "{} - {}".format(k, inspect.getdoc(f))
 
 @command('__DEFAULT__')
-def add(line):
+def add(track, line):
     track.insert(0, line)
 
 @command('d')
@@ -49,13 +61,10 @@ def list(line, track):
         print t
 
 @command('t')
-def select_track(line):
-    global track
-    tnum = int(line)
+def select_track(rem, tracks):
+    tnum = int(rem)
     if tnum < len(tracks):
         tracks.insert(0,tracks.pop(tnum))
-
-    track = tracks[0]
 
 @command('lt')
 def list_tracks(line):
@@ -63,8 +72,7 @@ def list_tracks(line):
         print t[0]
 
 @command('nt')
-def new_track(rem):
-    global track
+def new_track(tracks, rem):
     track = []
     tracks.insert(0, track)
 
@@ -80,7 +88,8 @@ def parse(raw_line):
             'line': line,
             'cmd': cmd,
             'rem': rem,
-            'track': track
+            'track': tracks[0],
+            'tracks': tracks
         }
 
         func = commands['__DEFAULT__']
@@ -89,6 +98,7 @@ def parse(raw_line):
                 func = fn
                 break
         invoke(func, args)
+        save()
 
 def invoke(fn, params):
     args = inspect.getargspec(fn).args
@@ -98,7 +108,11 @@ def invoke(fn, params):
     fn(*target_args)
 
 
+if os.path.exists(save_filename):
+    load()
+
 while True:
+    track = tracks[0]
     if len(track) > 0:
         print track[0]
     cmd = raw_input('{} > '.format(len(track)))
