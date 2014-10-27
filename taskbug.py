@@ -30,8 +30,9 @@ def quit(line):
 
 @command('?')
 def help(line):
+    """ Yay """
     for k,f in commands.iteritems():
-        print "{} - {}".format(k, f[1])
+        print "{} - {}".format(k, inspect.getdoc(f))
 
 @command('__DEFAULT__')
 def add(line):
