@@ -56,9 +56,15 @@ def drop(track):
         del track[0:1]
 
 @command('l')
-def list(line, track):
-    for t in track:
+def list(track):
+    for t in reversed(track):
         print t
+
+@command('b')
+def bump(track):
+    """ Bump task up """
+    if len(track) > 1:
+        track.insert(1,track.pop(0))
 
 @command('t')
 def select_track(rem, tracks):
