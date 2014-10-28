@@ -3,7 +3,11 @@
 import inspect
 import os
 import cPickle as pickle
-import pyreadline as readline
+
+if os.name=='nt':
+    import pyreadline as readline
+else:
+    import readline
 
 storage_version = 1
 history = []
