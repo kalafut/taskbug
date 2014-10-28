@@ -5,6 +5,7 @@ import os
 import cPickle as pickle
 import pyreadline as readline
 
+storage_version = 1
 history = []
 commands = {}
 tracks=[ [] ]
@@ -13,12 +14,15 @@ save_filename = "tb"
 
 def save():
     with open(save_filename, "wb") as f:
+        pickle.dump(storage_version, f)
         pickle.dump(tracks, f)
 
 def load():
     global track
     global tracks
     with open(save_filename, "rb") as f:
+        ver = pickle.load(f)
+        assert ver==storage_version
         tracks = pickle.load(f)
 
 def command(keyword):
@@ -51,9 +55,13 @@ def add(track, line):
     track.insert(0, line)
 
 @command('d')
-def drop(track):
+def drop(track, tracks):
     if len(track) > 0:
         del track[0:1]
+    else:
+        if len(tracks) > 1:
+            del tracks[0:1]
+
 
 @command('l')
 def list(track):
@@ -75,7 +83,7 @@ def select_track(rem, tracks):
 @command('lt')
 def list_tracks(line):
     for t in reversed(tracks):
-        print t[0]
+        print g(t, 0, '<empty>')
 
 @command('nt')
 def new_track(tracks, rem):
@@ -113,6 +121,8 @@ def invoke(fn, params):
         target_args.append(params[arg])
     fn(*target_args)
 
+def g(seq, idx, default):
+    return seq[idx] if len(seq) > idx else default
 
 if os.path.exists(save_filename):
     load()
