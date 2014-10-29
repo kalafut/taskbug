@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
+import cPickle as pickle
 import inspect
 import os
-import cPickle as pickle
+import re
 
 if os.name=='nt':
     import pyreadline as readline
@@ -40,7 +41,7 @@ def command(keyword):
     return decorator
 
 
-@command('clear')
+@command('clear(\d+)')
 def clear(line):
     os.system("clear")
 
@@ -48,7 +49,7 @@ def clear(line):
 def quit(line):
     exit()
 
-@command('?')
+@command('\?')
 def help(line):
     """ Yay """
     for k,f in commands.iteritems():
@@ -78,9 +79,10 @@ def bump(track):
     if len(track) > 1:
         track.insert(1,track.pop(0))
 
-@command('t')
-def select_track(rem, tracks):
-    tnum = int(rem)
+@command('t *(\d+)')
+def select_track(tracks, groups):
+    tnum = int(groups[0])
+    print tnum
     if tnum < len(tracks):
         tracks.insert(0,tracks.pop(tnum))
 
@@ -111,8 +113,10 @@ def parse(raw_line):
         }
 
         func = commands['__DEFAULT__']
-        for k,fn in commands.iteritems():
-            if cmd == k:
+        for regex,fn in commands.iteritems():
+            match = re.search(regex, line)
+            if match and match.start(0)==0:
+                args['groups'] = match.groups()
                 func = fn
                 break
         invoke(func, args)
