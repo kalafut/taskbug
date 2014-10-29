@@ -4,13 +4,30 @@ import inspect
 import os
 import cPickle as pickle
 import pyreadline as readline
+from datetime import datetime
 
-storage_version = 1
+storage_version = 2
 history = []
 commands = {}
 tracks=[ [] ]
 
 save_filename = "tb"
+
+class Task(object):
+    def __init__(self, text=""):
+        self.version = 3
+        self.created = datetime.now()
+        self.text = text
+
+    def __str__(self):
+        return self.text
+
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, state):
+        self.__init__()
+        self.__dict__.update(state)
 
 def save():
     with open(save_filename, "wb") as f:
@@ -22,8 +39,21 @@ def load():
     global tracks
     with open(save_filename, "rb") as f:
         ver = pickle.load(f)
-        assert ver==storage_version
-        tracks = pickle.load(f)
+
+        if ver==1:
+            old_tracks = pickle.load(f)
+            tracks = []
+            for tr in old_tracks:
+                tl = []
+                for ta in tr:
+                    tl.append(Task(ta))
+                tracks.append(tl)
+        elif ver==storage_version:
+            tracks = pickle.load(f)
+        else:
+            assert("Migration error")
+
+
 
 def command(keyword):
     def decorator(f):
@@ -52,7 +82,7 @@ def help(line):
 
 @command('__DEFAULT__')
 def add(track, line):
-    track.insert(0, line)
+    track.insert(0, Task(line))
 
 @command('d')
 def drop(track, tracks):
@@ -83,7 +113,7 @@ def select_track(rem, tracks):
 @command('lt')
 def list_tracks(line):
     for t in reversed(tracks):
-        print g(t, 0, '<empty>')
+        print "{}   {}".format(g(t, 0, '<empty>'), t[0].created)
 
 @command('nt')
 def new_track(tracks, rem):
@@ -91,7 +121,7 @@ def new_track(tracks, rem):
     tracks.insert(0, track)
 
     if rem:
-        track.append(rem)
+        add(track, rem)
 
 def parse(raw_line):
     line = raw_line.strip()
