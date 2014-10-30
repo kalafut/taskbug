@@ -5,6 +5,7 @@ import os
 import cPickle as pickle
 import pyreadline as readline
 from datetime import datetime
+from upgradeable import Upgradeable
 
 storage_version = 2
 history = []
@@ -13,21 +14,38 @@ tracks=[ [] ]
 
 save_filename = "tb"
 
-class Task(object):
+class Bucket(Upgradeable):
+    """Container for data structures, used so we can take advantage
+    of easy schema changes."""
+
+    version = 1
+
+    def __init__(self):
+        self.tracks = [[]]
+
+
+class Task(Upgradeable):
+    version = 5
+
     def __init__(self, text=""):
-        self.version = 3
-        self.created = datetime.now()
+        self.created = datetime.utcnow()
+        self.completed = None
         self.text = text
 
     def __str__(self):
         return self.text
 
-    def __getstate__(self):
-        return self.__dict__
+    def upgrade(self, from_version):
+        pass
 
-    def __setstate__(self, state):
-        self.__init__()
-        self.__dict__.update(state)
+class Config(Upgradeable):
+    version = 1
+
+    def __init__(self):
+        self.auto_clear = False
+
+    def upgrade(self, from_version):
+        pass
 
 def save():
     with open(save_filename, "wb") as f:
@@ -60,7 +78,6 @@ def command(keyword):
         assert keyword not in commands
         commands[keyword] = f
         def wrapper(*args, **kwargs):
-            print keyword # What is this??
             return f(*args, **kwargs)
         return wrapper
     return decorator
@@ -91,7 +108,6 @@ def drop(track, tracks):
     else:
         if len(tracks) > 1:
             del tracks[0:1]
-
 
 @command('l')
 def list(track):
