@@ -7,21 +7,20 @@ import pyreadline as readline
 from datetime import datetime
 from upgradeable import Upgradeable
 
-storage_version = 2
-history = []
 commands = {}
-tracks=[ [] ]
 
-save_filename = "tb"
-
-class Bucket(Upgradeable):
+class Database(Upgradeable):
     """Container for data structures, used so we can take advantage
     of easy schema changes."""
 
-    version = 1
+    version = 8
 
     def __init__(self):
         self.tracks = [[]]
+        self.history = []
+
+    def upgrade(self, from_version):
+        pass
 
 
 class Task(Upgradeable):
@@ -50,27 +49,22 @@ class Config(Upgradeable):
 def save():
     with open(save_filename, "wb") as f:
         pickle.dump(storage_version, f)
-        pickle.dump(tracks, f)
+        pickle.dump(database, f)
 
 def load():
-    global track
     global tracks
+    global database
     with open(save_filename, "rb") as f:
         ver = pickle.load(f)
 
-        if ver==1:
-            old_tracks = pickle.load(f)
-            tracks = []
-            for tr in old_tracks:
-                tl = []
-                for ta in tr:
-                    tl.append(Task(ta))
-                tracks.append(tl)
+        if ver==2:
+            database.tracks = pickle.load(f)
         elif ver==storage_version:
-            tracks = pickle.load(f)
+            database = pickle.load(f)
         else:
             assert("Migration error")
 
+        tracks = database.tracks
 
 
 def command(keyword):
@@ -104,6 +98,8 @@ def add(track, line):
 @command('d')
 def drop(track, tracks):
     if len(track) > 0:
+        root = track[-1]
+        database.history.append( (track[0], root) )
         del track[0:1]
     else:
         if len(tracks) > 1:
@@ -113,6 +109,11 @@ def drop(track, tracks):
 def list(track):
     for t in reversed(track):
         print t
+
+@command('h')
+def history():
+    for t in database.history:
+        print "{}  ({})".format(t[0], t[1])
 
 @command('b')
 def bump(track):
@@ -169,6 +170,12 @@ def invoke(fn, params):
 
 def g(seq, idx, default):
     return seq[idx] if len(seq) > idx else default
+
+storage_version = 3
+history = []
+database = Database()
+
+save_filename = "tb"
 
 if os.path.exists(save_filename):
     load()
