@@ -2,6 +2,7 @@
 
 import inspect
 import os
+from peewee import *
 import cPickle as pickle
 
 if os.name=='nt':
@@ -12,6 +13,55 @@ from datetime import datetime
 from upgradeable import Upgradeable
 
 commands = {}
+db = SqliteDatabase('people.db')
+
+def next_project():
+    max_id = -1
+    for task in Task.select():
+        max_id = max(max_id, task.project)
+
+    return max_id + 1
+
+
+class Setting(Model):
+    keyword = CharField(null=False, unique=True)
+    str_value = CharField(null=True)
+    int_value = IntegerField(null=True)
+
+    class Meta:
+        database = db
+
+    @staticmethod
+    def current_project(val=None):
+        try:
+            s = Setting.get(Setting.keyword == 'current_project')
+        except Setting.DoesNotExist:
+            s = Setting(keyword='current_project', int_value=0)
+            s.save()
+
+        if not val:
+            return s.int_value
+        else:
+            s.int_value = val
+            s.save()
+
+class Task(Model):
+    description = CharField(null=False, default="")
+    created = DateTimeField(default=datetime.utcnow)
+    completed = DateTimeField(null=True)
+    project = IntegerField(default=0)
+    order = IntegerField(null=True)
+
+    def __init__(self, *args, **kwargs):
+        super(Task, self).__init__(*args, **kwargs)
+
+    class Meta:
+        database = db
+
+    def __str__(self):
+        return self.description
+
+
 
 class Database(Upgradeable):
     """Container for data structures, used so we can take advantage
@@ -27,7 +77,7 @@ class Database(Upgradeable):
         pass
 
 
-class Task(Upgradeable):
+class Task2(Upgradeable):
     version = 5
 
     def __init__(self, text=""):
@@ -97,7 +147,10 @@ def help(line):
 
 @command('__DEFAULT__')
 def add(track, line):
-    track.insert(0, Task(line))
+    p = Setting.current_project()
+    t = Task(description = line)
+    t.project = p
+    t.save()
 
 @command('d')
 def drop(track, tracks):
@@ -111,7 +164,7 @@ def drop(track, tracks):
 
 @command('l')
 def list(track):
-    for t in reversed(track):
+    for t in Task.select().where(Task.project == Setting.current_project()):
         print t
 
 @command('h')
@@ -138,11 +191,9 @@ def list_tracks(line):
 
 @command('nt')
 def new_track(tracks, rem):
-    track = []
-    tracks.insert(0, track)
-
-    if rem:
-        add(track, rem)
+    p = Setting.current_project() + 1
+    Task(description=rem, project=p).save()
+    Setting.current_project(val=p)
 
 def parse(raw_line):
     line = raw_line.strip()
@@ -183,6 +234,9 @@ save_filename = "tb"
 
 if os.path.exists(save_filename):
     load()
+
+
+db.create_tables([Task, Setting], safe=True)
 
 while True:
     track = tracks[0]
