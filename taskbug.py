@@ -22,22 +22,26 @@ def next_project():
 
     return max_id + 1
 
+class Project(Model):
+    active = BooleanField(null=False, default=False)
+    selected = BooleanField(null=False, default=False)
+    order = IntegerField(default=0)
+
+    class Meta:
+        database = db
 
 class Setting(Model):
     keyword = CharField(null=False, unique=True)
     str_value = CharField(null=True)
     int_value = IntegerField(null=True)
 
-    class Meta:
-        database = db
 
     @staticmethod
     def current_project(val=None):
         try:
             s = Setting.get(Setting.keyword == 'current_project')
         except Setting.DoesNotExist:
-            s = Setting(keyword='current_project', int_value=0)
-            s.save()
+            s = Setting.create(keyword='current_project', int_value=0)
 
         if not val:
             return s.int_value
@@ -49,8 +53,8 @@ class Task(Model):
     description = CharField(null=False, default="")
     created = DateTimeField(default=datetime.utcnow)
     completed = DateTimeField(null=True)
-    project = IntegerField(default=0)
-    order = IntegerField(null=True)
+    project = ForeignKeyField(Project, related_name='tasks')
+    order = IntegerField(default=0)
 
     def __init__(self, *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
@@ -147,10 +151,12 @@ def help(line):
 
 @command('__DEFAULT__')
 def add(track, line):
-    p = Setting.current_project()
-    t = Task(description = line)
-    t.project = p
-    t.save()
+    try:
+        project = Project.get(Project.selected==True)
+    except Project.DoesNotExist:
+        project = Project.create(selected=True)
+
+    Task.create(description=line, project=project)
 
 @command('d')
 def drop(track, tracks):
@@ -191,9 +197,10 @@ def list_tracks(line):
 
 @command('nt')
 def new_track(tracks, rem):
-    p = Setting.current_project() + 1
-    Task(description=rem, project=p).save()
-    Setting.current_project(val=p)
+    Project.update(selected=False).execute()
+    p = Project.create(selected=True)
+
+    Task.create(description=rem, project=p)
 
 def parse(raw_line):
     line = raw_line.strip()
@@ -236,7 +243,7 @@ if os.path.exists(save_filename):
     load()
 
 
-db.create_tables([Task, Setting], safe=True)
+db.create_tables([Task, Setting, Project], safe=True)
 
 while True:
     track = tracks[0]
