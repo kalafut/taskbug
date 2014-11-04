@@ -105,6 +105,7 @@ class Config(Upgradeable):
         pass
 
 def save():
+    return  # just in case... we dont' want to mess up the pickle data
     with open(save_filename, "wb") as f:
         pickle.dump(storage_version, f)
         pickle.dump(database, f)
@@ -246,9 +247,13 @@ if os.path.exists(save_filename):
 db.create_tables([Task, Setting, Project], safe=True)
 
 while True:
-    track = tracks[0]
-    if len(track) > 0:
-        print track[0]
-    cmd = raw_input('{} > '.format(len(track)))
+    try:
+        p = Project.get(Project.selected==True)
+    except:
+        p = Project.create(selected=True)
+    track = p.tasks
+    if track.count() > 0:
+        print track[track.count() -1]
+    cmd = raw_input('{} > '.format(track.count()))
     parse(cmd)
     print
